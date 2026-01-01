@@ -196,16 +196,11 @@ class JobController extends Controller
     public function cancel($id)
     {
         $job = Booking::findOrFail($id);
-        $job->update(['status' => 'canceled']);
+        // หมายเหตุ: เช็ค enum ใน database ด้วยนะครับว่าเป็น 'canceled' หรือ 'cancelled' (เบิ้ล l)
+        $job->update(['status' => 'cancelled']); 
         return response()->json(['success' => true, 'message' => 'ยกเลิกงานเรียบร้อย']);
     }
 
-    // ฟังก์ชันอื่นๆ เช่น review, approve, receipt เพิ่มเติมได้ตามต้องการ
-    public function receipt($id)
-    {
-        $job = Booking::findOrFail($id);
-        return view('admin.jobs.receipt', compact('job'));
-    }
     /**
      * 🟢 หน้าตรวจสอบงาน (Review)
      */
@@ -225,9 +220,93 @@ class JobController extends Controller
         // อัปเดตสถานะเป็น "เสร็จสิ้นสมบูรณ์" (completed)
         $job->update([
             'status' => 'completed',
-            // อาจจะเพิ่ม logic ตัดสต็อกอะไหล่ หรือคำนวณเงินเดือนตรงนี้ได้ในอนาคต
         ]);
 
         return redirect()->route('admin.jobs.index')->with('success', 'อนุมัติงานและปิด Job เรียบร้อยแล้ว!');
+    }
+
+    // ==========================================
+    // 🛠️ ส่วนที่แก้ไข: ใบเสร็จรับเงิน
+    // ==========================================
+
+    public function receipt($id)
+    {
+        // 1. เปลี่ยนชื่อตัวแปรเป็น $booking ให้ตรงกับ View
+        $booking = Booking::with(['customer', 'equipment', 'assignedStaff'])->findOrFail($id);
+        
+        // 2. คำนวณยอดเงิน
+        $net_total = $booking->total_price - $booking->deposit_amount;
+        
+        // 3. แปลงเลขเป็นคำอ่านภาษาไทย
+        $baht_text = $this->baht_text($net_total);
+
+        return view('admin.jobs.receipt', compact('booking', 'net_total', 'baht_text'));
+    }
+
+    /**
+     * ฟังก์ชันแปลงตัวเลขเป็นภาษาไทย (Baht Text)
+     */
+    private function baht_text($number)
+    {
+        if (!is_numeric($number) || $number < 0) return "-";
+
+        $number = number_format($number, 2, '.', '');
+        $number_parts = explode('.', $number);
+        $integer_part = (int)$number_parts[0];
+        $fraction_part = (int)$number_parts[1];
+
+        $text_numbers = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
+        $text_digits = ['', 'สิบ', 'ร้อย', 'พัน', 'หมื่น', 'แสน', 'ล้าน'];
+
+        if ($integer_part == 0) {
+            $baht_text = "ศูนย์บาท";
+        } else {
+            $baht_text = "";
+            $str_int = strrev((string)$integer_part);
+            $len = strlen($str_int);
+
+            for ($i = 0; $i < $len; $i++) {
+                $digit = (int)$str_int[$i];
+                if ($digit != 0) {
+                    if ($i % 6 == 1 && $digit == 1) {
+                        $baht_text = "ยี่" . $text_digits[$i % 6] . $baht_text;
+                    } elseif ($i % 6 == 1 && $digit == 2) {
+                        $baht_text = "ยี่" . $text_digits[$i % 6] . $baht_text;
+                    } elseif ($i % 6 == 0 && $digit == 1 && $i > 0) {
+                        $baht_text = "เอ็ด" . $text_digits[$i % 6] . $baht_text;
+                    } else {
+                        $baht_text = $text_numbers[$digit] . $text_digits[$i % 6] . $baht_text;
+                    }
+                }
+            }
+            $baht_text = str_replace("หนึ่งสิบ", "สิบ", $baht_text);
+            $baht_text = str_replace("สองสิบ", "ยี่สิบ", $baht_text);
+            $baht_text = str_replace("สิบหนึ่ง", "สิบเอ็ด", $baht_text);
+            $baht_text .= "บาท";
+        }
+
+        if ($fraction_part == 0) {
+            $baht_text .= "ถ้วน";
+        } else {
+            $str_satang = ($fraction_part < 10) ? "0" . $fraction_part : (string)$fraction_part;
+            $satang_text = "";
+            $first = (int)$str_satang[0];
+            $second = (int)$str_satang[1];
+
+            if ($first > 0) {
+                if ($first == 1) $satang_text .= "สิบ";
+                elseif ($first == 2) $satang_text .= "ยี่สิบ";
+                else $satang_text .= $text_numbers[$first] . "สิบ";
+            }
+            
+            if ($second > 0) {
+                if ($first > 0 && $second == 1) $satang_text .= "เอ็ด";
+                else $satang_text .= $text_numbers[$second];
+            }
+            
+            $baht_text .= $satang_text . "สตางค์";
+        }
+
+        return $baht_text;
     }
 }

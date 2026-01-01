@@ -20,11 +20,12 @@ class Booking extends Model
         'actual_end',
         'status',
         'total_price',
-        'deposit_amount', // ✅ เพิ่ม: ยอดมัดจำ
+        'deposit_amount',
         'payment_status',
-        'payment_proof',  // ✅ เพิ่ม: รูปสลิปโอนเงินส่วนที่เหลือ
-        'image_path',     // (อันนี้ของเดิม เพิ่มเผื่อไว้ถ้ายังไม่มี)
-        'note'            // (อันนี้ของเดิม)
+        'payment_proof',
+        'payment_trans_ref', // ✅ เพิ่มบรรทัดนี้: เพื่อเก็บเลข Ref ของสลิป (เช่น 014xxxx)
+        'image_path',
+        'note'
     ];
 
     protected $casts = [
@@ -32,12 +33,10 @@ class Booking extends Model
         'scheduled_end' => 'datetime',
         'actual_start' => 'datetime',
         'actual_end' => 'datetime',
-        'deposit_amount' => 'decimal:2', // แปลงเป็นทศนิยมเสมอ
+        'deposit_amount' => 'decimal:2',
         'total_price' => 'decimal:2',
     ];
 
-    // ... (ส่วน Relationship เหมือนเดิม ไม่ต้องแก้) ...
-    
     public function customer()
     {
         return $this->belongsTo(Customer::class);

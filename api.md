@@ -69,3 +69,6 @@ user_id: 1
 งาน ID 6 ควรจะ หายไปแล้ว (เพราะอนุมัติเสร็จสิ้นแล้ว)
 
 แต่ถ้าอยากเช็คใน Database สถานะของงาน ID 6 ต้องเป็นคำว่า completed ครับ
+
+ALTER TABLE `bookings`
+ADD COLUMN `payment_trans_ref` VARCHAR(100) NULL AFTER `payment_status`;

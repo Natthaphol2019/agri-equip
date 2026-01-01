@@ -9,15 +9,14 @@ use App\Models\Equipment;
 use App\Models\MaintenanceLog;
 use App\Services\LineMessagingApi;
 use App\Services\PromptPayService;
-use App\Services\EasySlipSDK; // ✅ เรียกใช้ EasySlip
-use Illuminate\Support\Facades\Log; // ✅ เรียกใช้ Log
+use App\Services\EasySlipSDK;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class StaffJobController extends Controller
 {
-    // ... (ฟังก์ชัน index, show, startWork เหมือนเดิม) ...
-    
+    // ... (ฟังก์ชัน index, show, startWork ปล่อยไว้เหมือนเดิม ไม่ต้องแก้) ...
     public function index()
     {
         $myJobs = Booking::with(['customer', 'equipment'])
@@ -101,7 +100,7 @@ class StaffJobController extends Controller
     }
 
     // --------------------------------------------------------
-    // 🔥 แก้ไขฟังก์ชัน finishWork ให้ Log ปลอดภัย
+    // 🔥 แก้ไขฟังก์ชัน finishWork: เพิ่มเช็คสลิปซ้ำ (Duplicate Check)
     // --------------------------------------------------------
     public function finishWork(Request $request, $id)
     {
@@ -120,6 +119,8 @@ class StaffJobController extends Controller
             'note' => 'nullable|string',
         ]);
 
+        $transRef = null; // ตัวแปรเก็บเลข Ref
+
         if ($balance > 0 && $request->hasFile('payment_proof')) {
             
             Log::info("Job Finish: Checking Slip with EasySlip...");
@@ -128,18 +129,36 @@ class StaffJobController extends Controller
             $imageFile = $request->file('payment_proof');
             $result = $sdk->verify($imageFile);
 
-            // ✅ Log แบบนี้ปลอดภัย (ใส่ Array เป็น argument ที่ 2)
             Log::info("Job Finish: EasySlip Result", $result); 
 
+            // 1. เช็คว่าสลิปปลอมหรือไม่ (API ตอบ Error ไหม)
             if (!$result['success']) {
-                $msg = '❌ ' . ($result['message'] ?? 'Unknown Error');
+                $msg = '❌ สลิปไม่ผ่านการตรวจสอบ: ' . ($result['message'] ?? 'Unknown Error');
                 if ($request->ajax()) return response()->json(['success' => false, 'message' => $msg]);
                 return back()->with('error', $msg);
             }
 
-            $slipAmount = $result['data']['amount'];
-            
-            // เช็คยอดเงิน
+            $slipData = $result['data'];
+            $slipAmount = $slipData['amount'];
+            $transRef = $slipData['ref'] ?? null; // ดึงเลข Ref ออกมา
+
+            // 2. 🔴 เช็คสลิปซ้ำ (Duplicate Check)
+            // ค้นหาใน DB ว่ามี Job ไหนที่ใช้เลข Ref นี้ไปแล้วหรือยัง (ยกเว้น Job ตัวเอง)
+            if ($transRef) {
+                $isDuplicate = Booking::where('payment_trans_ref', $transRef)
+                    ->where('id', '!=', $id)
+                    ->exists();
+
+                if ($isDuplicate) {
+                    $msg = "❌ สลิปนี้ถูกใช้งานไปแล้ว! (รหัสรายการ: {$transRef})";
+                    Log::warning("Fraud Attempt: Duplicate Slip Used", ['user' => Auth::id(), 'ref' => $transRef]);
+                    
+                    if ($request->ajax()) return response()->json(['success' => false, 'message' => $msg]);
+                    return back()->with('error', $msg);
+                }
+            }
+
+            // 3. เช็คยอดเงิน
             if ($slipAmount < $balance) {
                 $msg = "❌ ยอดเงินไม่ครบ! (โอนมา {$slipAmount} บ. / ต้องจ่าย {$balance} บ.)";
                 Log::warning("Job Finish Failed: Insufficient amount.", ['slip' => $slipAmount, 'required' => $balance]);
@@ -148,7 +167,7 @@ class StaffJobController extends Controller
                 return back()->with('error', $msg);
             }
             
-            Log::info("Job Finish: Slip Passed. Amount: {$slipAmount}");
+            Log::info("Job Finish: Slip Passed. Amount: {$slipAmount}, Ref: {$transRef}");
         }
 
         // บันทึกรูป
@@ -162,12 +181,14 @@ class StaffJobController extends Controller
             $imagePath = $request->file('job_image')->store('job_evidence', 'public');
         }
 
+        // อัปเดตข้อมูลลง DB
         $job->update([
             'status' => 'completed_pending_approval',
             'actual_end' => Carbon::now(),
             'image_path' => $imagePath,
             'payment_proof' => $paymentProofPath,
             'payment_status' => $paymentProofPath ? 'paid' : $job->payment_status,
+            'payment_trans_ref' => $transRef, // ✅ บันทึกเลข Ref กันคนเอามาใช้ซ้ำ
             'note' => $request->note,
         ]);
 
@@ -183,7 +204,7 @@ class StaffJobController extends Controller
         return back()->with('success', "บันทึกงานเรียบร้อย!");
     }
 
-    // ... (ส่วน reportGeneral, dashboard, อื่นๆ เหมือนเดิม) ...
+    // ... (ส่วนอื่นๆ ด้านล่างปล่อยไว้เหมือนเดิม) ...
     public function dashboard()
     {
         $userId = Auth::id();
