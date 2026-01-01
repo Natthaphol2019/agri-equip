@@ -13,19 +13,19 @@ use App\Http\Controllers\Web\UserController;
 
 /*
 |--------------------------------------------------------------------------
-| 1. GUEST ZONE
+| 1. GUEST ZONE (คนทั่วไป)
 |--------------------------------------------------------------------------
 */
 Route::middleware('guest')->group(function () {
-    Route::get('/', [AuthController::class, 'loginForm'])->name('login');
+    // ล็อกอินหน้าเดียวจบ (Single Login)
+    Route::get('/', [AuthController::class, 'loginForm'])->name('login'); 
+    Route::get('/login', [AuthController::class, 'loginForm']); 
     Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
-    Route::get('/staff-login', [AuthController::class, 'staffLoginForm'])->name('staff.login');
-    Route::post('/staff-login', [AuthController::class, 'staffLoginSubmit'])->name('staff.login.submit');
 });
 
 /*
 |--------------------------------------------------------------------------
-| 2. AUTHENTICATED ZONE
+| 2. AUTHENTICATED ZONE (ต้องล็อกอินก่อน)
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
@@ -34,35 +34,26 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 3. 👮‍♂️ ADMIN ZONE
+    | 3. 👮‍♂️ ADMIN ZONE (เฉพาะ Admin)
     |--------------------------------------------------------------------------
     */
     Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
-
-        // --- Dashboard ---
+        
+        // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/dashboard/financial-data', [DashboardController::class, 'getFinancialData'])->name('dashboard.financial');
-
+        
+        // ✅ เพิ่มกลับมา: หน้าเมนูรวม (แก้ Error Route Not Found)
         Route::get('/menus', function () {
             return view('admin.menus');
         })->name('all-menus');
 
-        // --- Main Data ---
+        // Resources
         Route::resource('customers', CustomerController::class);
         Route::resource('equipments', EquipmentController::class);
-        
-        // --- Staff Management ---
-        Route::resource('staff', UserController::class)->names([
-            'index'   => 'users.index',
-            'create'  => 'users.create',
-            'store'   => 'users.store',
-            'show'    => 'users.show',
-            'edit'    => 'users.edit',
-            'update'  => 'users.update',
-            'destroy' => 'users.destroy',
-        ]);
+        Route::resource('staff', UserController::class)->names('users');
 
-        // --- Jobs ---
+        // Jobs (Admin View)
         Route::prefix('jobs')->name('jobs.')->group(function () {
             Route::get('/', [JobController::class, 'index'])->name('index');
             Route::get('/create', [JobController::class, 'create'])->name('create');
@@ -75,13 +66,11 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/api/get-bookings', [JobController::class, 'getBookingsByDate'])->name('get_bookings');
             Route::post('/{id}/update-driver', [JobController::class, 'updateDriver'])->name('update_driver');
             Route::post('/{id}/cancel', [JobController::class, 'cancel'])->name('cancel');
-            Route::get('/{id}/review', [JobController::class, 'review'])->name('review');
-            Route::post('/{id}/approve', [JobController::class, 'approve'])->name('approve');
             Route::get('/{id}/receipt', [JobController::class, 'receipt'])->name('receipt');
         });
 
-        // --- Maintenance ---
-        Route::controller(MaintenanceController::class)->prefix('maintenance')->name('maintenance.')->group(function () {
+        // Maintenance (Admin View)
+        Route::prefix('maintenance')->name('maintenance.')->controller(MaintenanceController::class)->group(function () {
             Route::get('/', 'index')->name('index');
             Route::get('/create', 'create')->name('create');
             Route::post('/store', 'store')->name('store');
@@ -91,15 +80,10 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/{id}/start', 'start')->name('start');
         });
 
-        // --- Reports ---
-        Route::get('/reports', function () {
-            return view('admin.reports.index');
-        })->name('reports.index');
-
-        // --- Profile & Settings ---
+        Route::get('/reports', function () { return view('admin.reports.index'); })->name('reports.index');
         Route::get('/profile', [UserController::class, 'profileForm'])->name('profile');
         Route::post('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
-
+        
         Route::get('/settings', function () {
             return "หน้าตั้งค่าระบบ (Coming Soon)";
         })->name('settings.index');
@@ -107,7 +91,7 @@ Route::middleware(['auth'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | 4. 👷‍♂️ STAFF ZONE
+    | 4. 👷‍♂️ STAFF ZONE (พนักงานทั่วไป)
     |--------------------------------------------------------------------------
     */
     Route::prefix('staff')->name('staff.')->group(function () {

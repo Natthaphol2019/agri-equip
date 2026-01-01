@@ -5,186 +5,204 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Booking;
+use App\Models\User;
+use App\Models\Customer;
 use App\Models\Equipment;
-use App\Models\MaintenanceLog;
-use App\Services\LineMessagingApi;
-use App\Services\PromptPayService;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 class JobController extends Controller
 {
-    public function index()
+    /**
+     * 🟢 แสดงรายการงานทั้งหมด (Admin View)
+     */
+    public function index(Request $request)
     {
-        $myJobs = Booking::with(['customer', 'equipment'])
-            ->where('assigned_staff_id', Auth::id())
-            ->whereIn('status', ['scheduled', 'in_progress'])
-            ->orderBy('scheduled_start', 'asc')
-            ->get();
+        // 1. รับค่า Filter
+        $status = $request->get('status', 'all');
+        $search = $request->get('search');
 
-        $qrCodes = [];
-        $promptPayNo = env('PROMPTPAY_NUMBER');
+        // 2. Query ข้อมูล
+        $query = Booking::with(['customer', 'equipment', 'assignedStaff'])
+            ->latest(); // เรียงจากใหม่ไปเก่า
 
-        foreach ($myJobs as $job) {
-            if ($job->status == 'in_progress') {
-                $balance = $job->total_price - $job->deposit_amount;
-                if ($balance > 0 && $promptPayNo) {
-                    try {
-                        $qrCodes[$job->id] = PromptPayService::generatePayload($promptPayNo, $balance);
-                    } catch (\Exception $e) { }
-                }
-            }
+        // 3. กรองตามสถานะ
+        if ($status !== 'all') {
+            $query->where('status', $status);
         }
 
-        $historyJobs = Booking::with(['customer'])
-            ->where('assigned_staff_id', Auth::id())
-            ->whereIn('status', ['completed', 'completed_pending_approval'])
-            ->latest('actual_end')
-            ->take(5)
-            ->get();
+        // 4. ค้นหา (ชื่อลูกค้า หรือ เลข Job)
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->whereHas('customer', function($sub) use ($search) {
+                    $sub->where('name', 'like', "%$search%");
+                })->orWhere('job_number', 'like', "%$search%");
+            });
+        }
 
-        $equipments = Equipment::where('deleted_at', null)->get();
+        // 5. Pagination
+        $jobs = $query->paginate(10)->withQueryString();
 
-        return view('staff.jobs.index', compact('myJobs', 'historyJobs', 'equipments', 'qrCodes'));
+        // 6. โหลดข้อมูล Staff ไว้สำหรับ Modal "มอบหมายงานด่วน"
+        $staffs = User::where('role', 'staff')->where('is_active', true)->get();
+
+        // ถ้าเป็น AJAX Request (ตอนกด Tab หรือ Search) ให้ส่งเฉพาะตารางกลับไป
+        if ($request->ajax()) {
+            return view('admin.jobs.table', compact('jobs'))->render();
+        }
+
+        return view('admin.jobs.index', compact('jobs', 'staffs'));
     }
 
+    /**
+     * 🟢 ฟอร์มสร้างงานใหม่
+     */
+    public function create()
+    {
+        $customers = Customer::all();
+        // ดึงเฉพาะรถที่ว่าง หรือ กำลังใช้งาน (ไม่เอารถซ่อม)
+        $equipments = Equipment::where('current_status', '!=', 'maintenance')->get();
+        $staffs = User::where('role', 'staff')->where('is_active', true)->get();
+
+        return view('admin.jobs.create', compact('customers', 'equipments', 'staffs'));
+    }
+
+    /**
+     * 🟢 บันทึกงานใหม่
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'equipment_id' => 'required|exists:equipment,id',
+            'assigned_staff_id' => 'required|exists:users,id',
+            'scheduled_start' => 'required|date',
+            'scheduled_end' => 'required|date|after:scheduled_start',
+            'total_price' => 'required|numeric|min:0',
+            'deposit_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        // สร้าง Job Number (เช่น JOB-20240101-0001)
+        $dateStr = date('Ymd');
+        $lastJob = Booking::where('job_number', 'like', "JOB-$dateStr-%")->latest()->first();
+        $nextNum = $lastJob ? intval(substr($lastJob->job_number, -4)) + 1 : 1;
+        $jobNumber = "JOB-$dateStr-" . sprintf('%04d', $nextNum);
+
+        Booking::create([
+            'job_number' => $jobNumber,
+            'customer_id' => $request->customer_id,
+            'equipment_id' => $request->equipment_id,
+            'assigned_staff_id' => $request->assigned_staff_id,
+            'scheduled_start' => $request->scheduled_start,
+            'scheduled_end' => $request->scheduled_end,
+            'total_price' => $request->total_price,
+            'deposit_amount' => $request->deposit_amount ?? 0,
+            'payment_status' => ($request->deposit_amount > 0) ? 'deposit_paid' : 'pending',
+            'status' => 'scheduled',
+        ]);
+
+        return redirect()->route('admin.jobs.index')->with('success', 'สร้างงานใหม่สำเร็จ!');
+    }
+
+    /**
+     * 🟢 แสดงรายละเอียดงาน
+     */
     public function show($id)
     {
-        $job = Booking::with(['customer', 'equipment'])->findOrFail($id);
-        if ($job->assigned_staff_id != Auth::id()) abort(403);
-
-        $balance = $job->total_price - $job->deposit_amount;
-        $qrData = null;
-        $promptPayNo = env('PROMPTPAY_NUMBER');
-
-        if ($balance > 0 && $promptPayNo) {
-            $qrData = PromptPayService::generatePayload($promptPayNo, $balance);
-        }
-
-        return view('staff.jobs.show', compact('job', 'qrData', 'balance'));
+        $job = Booking::with(['customer', 'equipment', 'assignedStaff'])->findOrFail($id);
+        return view('admin.jobs.show', compact('job'));
     }
 
-    // ✅ แก้ไข: Start Work แบบ AJAX
-    public function startWork(Request $request, $id)
+    /**
+     * 🟢 แก้ไขงาน
+     */
+    public function edit($id)
     {
-        $job = Booking::with('equipment')
-            ->where('id', $id)
-            ->where('assigned_staff_id', Auth::id())
-            ->firstOrFail();
+        $job = Booking::findOrFail($id);
+        $customers = Customer::all();
+        $equipments = Equipment::all();
+        $staffs = User::where('role', 'staff')->get();
 
-        $job->update([
-            'status' => 'in_progress',
-            'actual_start' => Carbon::now(),
-        ]);
-
-        try {
-            $msg = "▶️ เริ่มปฏิบัติงาน!\n📄 Job: {$job->job_number}\n👤 Staff: " . Auth::user()->name;
-            LineMessagingApi::send($msg);
-        } catch (\Exception $e) { }
-
-        if ($request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'เริ่มงานแล้ว! ลุยเลย ✌️',
-                'job_id' => $job->id,
-                'new_status' => 'in_progress'
-            ]);
-        }
-
-        return back()->with('success', 'เริ่มงานแล้ว! สู้ๆ ครับ ✌️');
+        return view('admin.jobs.edit', compact('job', 'customers', 'equipments', 'staffs'));
     }
 
-    // ✅ แก้ไข: Finish Work แบบ AJAX
-    public function finishWork(Request $request, $id)
+    /**
+     * 🟢 อัปเดตงาน
+     */
+    public function update(Request $request, $id)
     {
-        $job = Booking::with('equipment')
-            ->where('id', $id)
-            ->where('assigned_staff_id', Auth::id())
-            ->firstOrFail();
+        $job = Booking::findOrFail($id);
 
-        $balance = $job->total_price - $job->deposit_amount;
-
-        $request->validate([
-            'job_image' => 'required|image|max:10240',
-            'payment_proof' => ($balance > 0) ? 'required|image|max:10240' : 'nullable|image|max:10240',
-            'note' => 'nullable|string',
-        ]);
-
-        $paymentProofPath = null;
-        if ($request->hasFile('payment_proof')) {
-            $paymentProofPath = $request->file('payment_proof')->store('payments', 'public');
+        // ถ้าเป็น AJAX Request (จาก Quick Assign Modal)
+        if ($request->ajax() && $request->has('assigned_staff_id')) {
+            $job->update(['assigned_staff_id' => $request->assigned_staff_id]);
+            return response()->json(['success' => true, 'message' => 'มอบหมายงานสำเร็จ']);
         }
 
-        $imagePath = null;
-        if ($request->hasFile('job_image')) {
-            $imagePath = $request->file('job_image')->store('job_evidence', 'public');
-        }
-
-        $job->update([
-            'status' => 'completed_pending_approval',
-            'actual_end' => Carbon::now(),
-            'image_path' => $imagePath,
-            'payment_proof' => $paymentProofPath,
-            'payment_status' => $paymentProofPath ? 'paid' : $job->payment_status,
-            'note' => $request->note,
+        // ถ้าเป็น Form Submit ปกติ (จากหน้า Edit)
+        $validated = $request->validate([
+            'customer_id' => 'required',
+            'equipment_id' => 'required',
+            'assigned_staff_id' => 'required',
+            'scheduled_start' => 'required|date',
+            'scheduled_end' => 'required|date',
+            'total_price' => 'required|numeric',
         ]);
 
-        if ($request->ajax()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'ส่งงานเรียบร้อย! ขอบคุณครับ 🙏',
-                'job_id' => $job->id,
-                'new_status' => 'completed'
-            ]);
+        $job->update($validated);
+
+        return redirect()->route('admin.jobs.index')->with('success', 'อัปเดตข้อมูลสำเร็จ');
+    }
+
+    /**
+     * 🟢 API เช็คคิวงาน (สำหรับหน้า Create)
+     */
+    public function getBookingsByDate(Request $request)
+    {
+        $date = $request->date; // Y-m-d
+        $equipmentId = $request->equipment_id;
+
+        $query = Booking::whereDate('scheduled_start', $date)
+            ->where('status', '!=', 'canceled');
+
+        if ($equipmentId) {
+            $query->where('equipment_id', $equipmentId);
         }
 
-        return back()->with('success', "บันทึกงานเรียบร้อย!");
+        $bookings = $query->get()->map(function($job) {
+            return [
+                'job_number' => $job->job_number,
+                'time_start' => Carbon::parse($job->scheduled_start)->format('H:i'),
+                'time_end' => Carbon::parse($job->scheduled_end)->format('H:i'),
+                'status' => $job->status,
+            ];
+        });
+
+        return response()->json($bookings);
     }
 
-    public function maintenanceIndex() {
-        return view('staff.maintenance.index', [
-            'myMaintenanceLogs' => MaintenanceLog::where('reported_by', Auth::id())->latest()->limit(20)->get()
-        ]);
+    /**
+     * 🟢 เปลี่ยนคนขับ (API)
+     */
+    public function updateDriver(Request $request, $id)
+    {
+        $job = Booking::findOrFail($id);
+        $job->update(['assigned_staff_id' => $request->staff_id]);
+        return back()->with('success', 'เปลี่ยนคนขับเรียบร้อย');
     }
 
-    public function createReport() {
-        return view('staff.maintenance.create', ['equipments' => Equipment::all()]);
+    /**
+     * 🟢 ยกเลิกงาน
+     */
+    public function cancel($id)
+    {
+        $job = Booking::findOrFail($id);
+        $job->update(['status' => 'canceled']);
+        return response()->json(['success' => true, 'message' => 'ยกเลิกงานเรียบร้อย']);
     }
-
-    public function storeReport(Request $request) { return back(); }
-    public function reportIssue(Request $request, $jobId) { return back(); }
-    public function reportGeneral(Request $request) { return back(); }
-
-    // ✅✅✅ แก้ไขส่วน Dashboard ให้ดึงข้อมูลจริง เพื่อแก้ Error Undefined array key
-    public function dashboard() {
-        $userId = Auth::id();
-
-        // ดึงจำนวนงานแต่ละสถานะ
-        $counts = [
-            'in_progress' => Booking::where('assigned_staff_id', $userId)->where('status', 'in_progress')->count(),
-            'scheduled'   => Booking::where('assigned_staff_id', $userId)->where('status', 'scheduled')->count(),
-            'completed'   => Booking::where('assigned_staff_id', $userId)
-                                    ->where('status', 'completed')
-                                    ->whereMonth('actual_end', Carbon::now()->month) // นับเฉพาะเดือนนี้
-                                    ->whereYear('actual_end', Carbon::now()->year)
-                                    ->count(),
-        ];
-
-        // ดึงงานด่วน (กำลังทำ หรือ นัดหมายวันนี้)
-        $urgentJobs = Booking::with(['customer', 'equipment'])
-            ->where('assigned_staff_id', $userId)
-            ->where(function($q) {
-                $q->where('status', 'in_progress')
-                  ->orWhere(function($sub) {
-                      $sub->where('status', 'scheduled')
-                          ->whereDate('scheduled_start', Carbon::today());
-                  });
-            })
-            ->orderBy('status', 'asc') // เรียงให้ in_progress ขึ้นก่อน (i มาก่อน s)
-            ->orderBy('scheduled_start', 'asc')
-            ->limit(10)
-            ->get();
-
-        return view('staff.dashboard', compact('counts', 'urgentJobs')); 
+    
+    // ฟังก์ชันอื่นๆ เช่น review, approve, receipt เพิ่มเติมได้ตามต้องการ
+    public function receipt($id) {
+         $job = Booking::findOrFail($id);
+         return view('admin.jobs.receipt', compact('job'));
     }
 }

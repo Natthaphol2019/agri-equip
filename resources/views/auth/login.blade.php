@@ -1,62 +1,79 @@
 @extends('layouts.guest')
 
-@section('content')
+@section('title', 'เข้าสู่ระบบ')
 
-    @if($errors->any())
-        <div class="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 text-sm rounded">
-            <ul class="list-disc list-inside">
-                @foreach($errors->all() as $error)
+@section('content')
+<div class="w-full max-w-md mx-auto p-6">
+    <div class="text-center mb-8">
+        {{-- โลโก้ (ถ้ามี) --}}
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-agri-primary/10 text-agri-primary mb-4">
+            <i class="fa-solid fa-tractor text-3xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">เข้าสู่ระบบ Agri-Equip</h2>
+        <p class="text-gray-500 text-sm mt-2">ระบบบริหารจัดการเครื่องจักรและงานบริการ</p>
+    </div>
+
+    {{-- แสดง Error --}}
+    @if ($errors->any())
+        <div class="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+            <div class="flex items-center gap-2 text-red-700 font-bold mb-1">
+                <i class="fa-solid fa-circle-exclamation"></i> ผิดพลาด
+            </div>
+            <ul class="list-disc list-inside text-sm text-red-600">
+                @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
         </div>
     @endif
 
-    <form action="{{ route('login.submit') }}" method="POST">
+    <form method="POST" action="{{ route('login.submit') }}" class="space-y-5">
         @csrf
 
         {{-- Username --}}
-        <div class="mb-5">
-            <label for="username" class="block text-sm font-medium text-gray-700 mb-1">ชื่อผู้ใช้งาน</label>
+        <div>
+            <label for="username" class="block text-sm font-bold text-gray-700 mb-1">ชื่อผู้ใช้ (Username)</label>
             <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i class="fa-regular fa-user text-gray-400"></i>
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-user"></i>
                 </div>
-                <input type="text" name="username" id="username" required autofocus
-                    class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agri-accent focus:border-agri-primary transition sm:text-sm"
-                    placeholder="Username">
+                <input type="text" id="username" name="username" value="{{ old('username') }}" required autofocus
+                    class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-agri-primary focus:border-agri-primary transition outline-none"
+                    placeholder="ระบุชื่อผู้ใช้ของคุณ">
             </div>
         </div>
 
         {{-- Password --}}
-        <div class="mb-6" x-data="{ show: false }">
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
+        <div>
+            <label for="password" class="block text-sm font-bold text-gray-700 mb-1">รหัสผ่าน (Password)</label>
             <div class="relative">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i class="fa-solid fa-lock text-gray-400"></i>
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <i class="fa-solid fa-lock"></i>
                 </div>
-                <input :type="show ? 'text' : 'password'" name="password" id="password" required
-                    class="block w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-agri-accent focus:border-agri-primary transition sm:text-sm"
-                    placeholder="••••••••">
-                <button type="button" @click="show = !show" 
-                        class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer text-gray-400 hover:text-agri-primary focus:outline-none">
-                    <i class="fa-regular" :class="show ? 'fa-eye-slash' : 'fa-eye'"></i>
-                </button>
+                <input type="password" id="password" name="password" required
+                    class="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-agri-primary focus:border-agri-primary transition outline-none"
+                    placeholder="ระบุรหัสผ่าน">
             </div>
         </div>
 
-        <button type="submit" 
-            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-agri-primary hover:bg-agri-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-agri-accent transition-transform transform active:scale-95">
-            เข้าสู่ระบบ (Admin)
-        </button>
-
-        {{-- ✅ ปุ่มไปหน้าพนักงาน --}}
-        <div class="mt-6 pt-6 border-t border-gray-100 text-center">
-            <a href="{{ route('staff.login') }}" 
-               class="inline-flex items-center gap-2 text-agri-primary font-bold hover:text-agri-secondary transition bg-green-50 px-4 py-2 rounded-full text-sm">
-                <i class="fa-solid fa-users"></i> เข้าสู่ระบบพนักงาน (PIN)
-            </a>
+        {{-- Remember Me --}}
+        <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="remember" class="w-4 h-4 text-agri-primary border-gray-300 rounded focus:ring-agri-primary">
+                <span class="text-sm text-gray-600">จดจำฉันไว้ในระบบ</span>
+            </label>
         </div>
+
+        {{-- Submit Button --}}
+        <button type="submit" 
+            class="w-full bg-agri-primary text-white py-3.5 rounded-xl font-bold text-lg hover:bg-agri-hover hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2">
+            <span>เข้าสู่ระบบ</span>
+            <i class="fa-solid fa-arrow-right"></i>
+        </button>
     </form>
 
+    <div class="mt-8 text-center text-xs text-gray-400">
+        &copy; {{ date('Y') }} Agri-Equip Management System
+    </div>
+</div>
 @endsection

@@ -5,19 +5,20 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    // ===========================
-    // 1. ADMIN LOGIN (Username/Password)
-    // ===========================
+    // 1. แสดงหน้าล็อกอิน (หน้าเดียว)
     public function loginForm()
     {
+        // ถ้าล็อกอินอยู่แล้ว ให้เด้งไป Dashboard เลย ไม่ต้องกรอกใหม่
+        if (Auth::check()) {
+            return $this->redirectUser();
+        }
         return view('auth.login'); 
     }
 
+    // 2. ประมวลผลล็อกอิน
     public function login(Request $request)
     {
         $credentials = $request->validate([
@@ -25,61 +26,39 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials)) {
+        // พยายามล็อกอิน
+        if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
 
-            // เช็ค Role เพื่อ Redirect ให้ถูกหน้า
-            if (Auth::user()->role === 'admin') {
-                return redirect()->route('admin.dashboard');
-            } else {
-                // ✅ แก้ไข: ถ้า Staff ล็อกอินแบบ Username ให้ไป Dashboard เหมือนกัน
-                return redirect()->route('staff.dashboard');
-            }
+            // ✅ เรียกใช้ฟังก์ชันแยกเส้นทางอัตโนมัติ
+            return $this->redirectUser();
         }
 
-        return back()->withErrors(['username' => 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง']);
+        // ล็อกอินไม่ผ่าน
+        return back()->withErrors([
+            'username' => 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง',
+        ])->withInput(); // คืนค่า input เดิมจะได้ไม่ต้องพิมพ์ใหม่
     }
 
-    // ===========================
-    // 2. STAFF LOGIN (PIN System)
-    // ===========================
-    public function staffLoginForm()
+    // 3. ฟังก์ชันแยกเส้นทาง (Smart Redirect Logic)
+    private function redirectUser()
     {
-        // ดึง user ที่ไม่ใช่ admin มาแสดง
-        $staffs = User::where('role', '!=', 'admin')->get(); 
+        $role = Auth::user()->role;
+
+        if ($role === 'admin') {
+            return redirect()->route('admin.dashboard');
+        } 
         
-        return view('auth.login-staff', compact('staffs'));
+        // ถ้าไม่ใช่ admin (คือ staff) ไปหน้านี้
+        return redirect()->route('staff.dashboard');
     }
 
-    public function staffLoginSubmit(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'pin' => 'required|string|size:4',
-        ]);
-
-        $user = User::find($request->user_id);
-
-        // ตรวจสอบ PIN (Hash)
-        // ⚠️ ต้องมั่นใจว่าใน DB เก็บ PIN แบบ Hash แล้ว
-        if (!$user->pin || !Hash::check($request->pin, $user->pin)) {
-            return back()->with('error', '❌ รหัส PIN ไม่ถูกต้อง!');
-        }
-
-        // Login สำเร็จ
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        // ✅ Redirect ไปหน้า Dashboard ของ Staff
-        return redirect()->route('staff.dashboard')
-                         ->with('success', 'สวัสดีครับ ' . $user->name . ' 👋');
-    }
-
+    // 4. ออกจากระบบ
     public function logout(Request $request)
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return redirect()->route('login');
     }
 }

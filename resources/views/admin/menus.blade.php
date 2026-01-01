@@ -1,111 +1,150 @@
 @extends('layouts.admin')
+
 @section('title', 'เมนูทั้งหมด')
-@section('header', 'เมนูการจัดการ (All Apps)')
+@section('header', 'เมนูระบบ (All Apps)')
 
 @section('content')
-<div class="max-w-2xl mx-auto pb-8">
-    
-    {{-- Section 1: งานหลัก (Core Operations) --}}
-    <div class="mb-8">
-        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-2 flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-agri-primary"></span> การทำงานหลัก
-        </h3>
-        <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
-            
-            {{-- งานบริการ --}}
-            <a href="{{ route('admin.jobs.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shadow-sm border border-blue-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-blue-600">งานบริการ</span>
-            </a>
+<div class="max-w-5xl mx-auto pb-12">
 
-            {{-- แจ้งซ่อม --}}
-            <a href="{{ route('admin.maintenance.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center text-2xl shadow-sm border border-orange-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-screwdriver-wrench"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-orange-500">แจ้งซ่อม</span>
-            </a>
-
-            {{-- เครื่องจักร --}}
-            <a href="{{ route('admin.equipments.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl shadow-sm border border-indigo-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-tractor"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-indigo-600">เครื่องจักร</span>
-            </a>
-
-            {{-- รายงาน --}}
-            <a href="{{ route('admin.reports.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl shadow-sm border border-purple-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-chart-pie"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-purple-600">รายงาน</span>
-            </a>
-
+    {{-- Hero Section --}}
+    <div class="bg-gradient-to-r from-agri-primary to-green-700 rounded-2xl p-6 text-white shadow-lg mb-8 relative overflow-hidden">
+        <div class="relative z-10 flex justify-between items-center">
+            <div>
+                <h2 class="text-2xl font-bold mb-1">ยินดีต้อนรับ, {{ Auth::user()->name }} 👋</h2>
+                <p class="text-green-100 text-sm">เลือกเมนูที่ต้องการจัดการ</p>
+            </div>
+            <div class="hidden md:block opacity-20">
+                <i class="fa-solid fa-cubes-stacked text-6xl"></i>
+            </div>
         </div>
+        {{-- Decoration Circles --}}
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
+        <div class="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-5 -mb-5 blur-xl"></div>
     </div>
 
-    {{-- Section 2: การจัดการคน (People & Staff) --}}
-    <div class="mb-8">
-        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-2 flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> บุคลากร
-        </h3>
-        <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
+    {{-- Grid Container --}}
+    <div class="space-y-8">
+
+        {{-- 1. งานหลัก (Operations) --}}
+        <div>
+            <div class="flex items-center gap-3 mb-4 px-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600">
+                    <i class="fa-solid fa-briefcase"></i>
+                </div>
+                <h3 class="font-bold text-gray-700 text-lg">การทำงานหลัก</h3>
+            </div>
             
-            {{-- ข้อมูลลูกค้า --}}
-            <a href="{{ route('admin.customers.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center text-2xl shadow-sm border border-teal-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-users"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-teal-600">ลูกค้า</span>
-            </a>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="{{ route('admin.jobs.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+                        <i class="fa-solid fa-clipboard-list text-6xl text-blue-600"></i>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-clipboard-list"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">งานบริการ</h4>
+                    <p class="text-xs text-gray-400 mt-1">จัดการคิวงานและสถานะ</p>
+                </a>
 
-            {{-- ✅ จัดการพนักงาน (Staff) --}}
-            <a href="{{ route('admin.users.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center text-2xl shadow-sm border border-green-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-id-card-clip"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-green-600">พนักงาน</span>
-            </a>
+                <a href="{{ route('admin.maintenance.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-orange-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+                        <i class="fa-solid fa-screwdriver-wrench text-6xl text-orange-500"></i>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-orange-500 transition-colors">แจ้งซ่อมบำรุง</h4>
+                    <p class="text-xs text-gray-400 mt-1">ติดตามการซ่อมเครื่องจักร</p>
+                </a>
 
+                <a href="{{ route('admin.equipments.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+                        <i class="fa-solid fa-tractor text-6xl text-indigo-600"></i>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-tractor"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">เครื่องจักร</h4>
+                    <p class="text-xs text-gray-400 mt-1">ทะเบียนและสถานะรถ</p>
+                </a>
+
+                <a href="{{ route('admin.reports.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-purple-200 transition-all duration-300 relative overflow-hidden">
+                    <div class="absolute right-0 top-0 p-4 opacity-5 group-hover:scale-125 transition-transform duration-500">
+                        <i class="fa-solid fa-chart-pie text-6xl text-purple-600"></i>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-chart-pie"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-purple-600 transition-colors">รายงานสรุป</h4>
+                    <p class="text-xs text-gray-400 mt-1">สถิติและการเงิน</p>
+                </a>
+            </div>
         </div>
-    </div>
 
-    {{-- Section 3: ระบบ (System) --}}
-    <div class="mb-8">
-        <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 px-2 flex items-center gap-2">
-            <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span> ตั้งค่าระบบ
-        </h3>
-        <div class="grid grid-cols-3 sm:grid-cols-4 gap-4">
-            
-            {{-- โปรไฟล์ --}}
-            <a href="{{ route('admin.profile') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-gray-50 text-gray-600 flex items-center justify-center text-2xl shadow-sm border border-gray-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-user-circle"></i>
+        {{-- 2. บุคลากร (People) --}}
+        <div>
+            <div class="flex items-center gap-3 mb-4 px-2">
+                <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">
+                    <i class="fa-solid fa-users-gear"></i>
                 </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-gray-800">โปรไฟล์</span>
-            </a>
+                <h3 class="font-bold text-gray-700 text-lg">บุคลากร</h3>
+            </div>
 
-            {{-- ตั้งค่า --}}
-            <a href="{{ route('admin.settings.index') }}" class="flex flex-col items-center group cursor-pointer">
-                <div class="w-16 h-16 rounded-2xl bg-gray-50 text-gray-600 flex items-center justify-center text-2xl shadow-sm border border-gray-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-gear"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-gray-800">ตั้งค่า</span>
-            </a>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="{{ route('admin.customers.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-teal-200 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-teal-600 transition-colors">ลูกค้า</h4>
+                    <p class="text-xs text-gray-400 mt-1">รายชื่อผู้ใช้บริการ</p>
+                </a>
 
-            {{-- ออกจากระบบ --}}
-            <button onclick="confirmLogout()" class="flex flex-col items-center group cursor-pointer w-full">
-                <div class="w-16 h-16 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center text-2xl shadow-sm border border-red-100 group-hover:bg-red-100 group-hover:scale-110 group-hover:shadow-md transition duration-300">
-                    <i class="fa-solid fa-power-off"></i>
-                </div>
-                <span class="text-xs font-medium text-gray-600 mt-2 group-hover:text-red-500">ออกระบบ</span>
-            </button>
-
+                <a href="{{ route('admin.users.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-green-200 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-id-card-clip"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-green-600 transition-colors">พนักงาน</h4>
+                    <p class="text-xs text-gray-400 mt-1">จัดการทีมงาน/คนขับ</p>
+                </a>
+            </div>
         </div>
-    </div>
 
+        {{-- 3. ระบบ (System) --}}
+        <div>
+            <div class="flex items-center gap-3 mb-4 px-2">
+                <div class="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-600">
+                    <i class="fa-solid fa-sliders"></i>
+                </div>
+                <h3 class="font-bold text-gray-700 text-lg">ระบบทั่วไป</h3>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <a href="{{ route('admin.profile') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-300 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-2xl bg-gray-50 text-gray-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-user-circle"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-gray-900 transition-colors">โปรไฟล์</h4>
+                    <p class="text-xs text-gray-400 mt-1">ข้อมูลส่วนตัว</p>
+                </a>
+
+                <a href="{{ route('admin.settings.index') }}" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-gray-300 transition-all duration-300">
+                    <div class="w-14 h-14 rounded-2xl bg-gray-50 text-gray-600 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 group-hover:rotate-90 transition-transform duration-500">
+                        <i class="fa-solid fa-gear"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-gray-900 transition-colors">ตั้งค่าระบบ</h4>
+                    <p class="text-xs text-gray-400 mt-1">Configuration</p>
+                </a>
+
+                <button onclick="confirmLogout()" class="group bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-red-200 hover:bg-red-50 transition-all duration-300 text-left w-full">
+                    <div class="w-14 h-14 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center text-2xl mb-3 group-hover:bg-white group-hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-power-off"></i>
+                    </div>
+                    <h4 class="font-bold text-gray-800 group-hover:text-red-600 transition-colors">ออกจากระบบ</h4>
+                    <p class="text-xs text-gray-400 mt-1 group-hover:text-red-400">Logout</p>
+                </button>
+            </div>
+        </div>
+
+    </div>
 </div>
 @endsection

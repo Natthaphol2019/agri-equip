@@ -28,7 +28,6 @@ class StaffJobController extends Controller
         $qrCodes = [];
         $promptPayNo = env('PROMPTPAY_NUMBER');
 
-        // สร้าง QR Code ล่วงหน้าสำหรับงานที่กำลังทำอยู่ (ถ้ามี)
         foreach ($myJobs as $job) {
             if ($job->status == 'in_progress') {
                 $balance = $job->total_price - $job->deposit_amount;
@@ -59,7 +58,6 @@ class StaffJobController extends Controller
     {
         $job = Booking::with(['customer', 'equipment'])->findOrFail($id);
         
-        // ป้องกันไม่ให้ดูงานคนอื่น
         if ($job->assigned_staff_id != Auth::id()) {
             abort(403, 'Unauthorized action.');
         }
@@ -90,7 +88,6 @@ class StaffJobController extends Controller
             'actual_start' => Carbon::now(),
         ]);
 
-        // แจ้งเตือน LINE (ถ้ามี)
         try {
             $msg = "▶️ เริ่มปฏิบัติงาน!\n📄 Job: {$job->job_number}\n👤 Staff: " . Auth::user()->name;
             LineMessagingApi::send($msg);
@@ -158,17 +155,15 @@ class StaffJobController extends Controller
     }
 
     /**
-     * 🟢 5. Dashboard พนักงาน (แก้ไขส่วนนี้ที่ทำให้เกิด Error)
+     * 🟢 5. Dashboard พนักงาน
      */
     public function dashboard()
     {
         $userId = Auth::id();
 
-        // ✅ 1. ดึงจำนวนงานแต่ละสถานะ (แก้ Error Undefined index)
         $counts = [
             'in_progress' => Booking::where('assigned_staff_id', $userId)->where('status', 'in_progress')->count(),
             'scheduled'   => Booking::where('assigned_staff_id', $userId)->where('status', 'scheduled')->count(),
-            // นับเฉพาะงานที่เสร็จในเดือนนี้
             'completed'   => Booking::where('assigned_staff_id', $userId)
                                     ->whereIn('status', ['completed', 'completed_pending_approval'])
                                     ->whereMonth('actual_end', Carbon::now()->month)
@@ -176,7 +171,6 @@ class StaffJobController extends Controller
                                     ->count(),
         ];
 
-        // ✅ 2. ดึงงานด่วน (งานที่กำลังทำ หรือ งานนัดหมายวันนี้)
         $urgentJobs = Booking::with(['customer', 'equipment'])
             ->where('assigned_staff_id', $userId)
             ->where(function($q) {
@@ -186,7 +180,6 @@ class StaffJobController extends Controller
                           ->whereDate('scheduled_start', Carbon::today());
                   });
             })
-            // เรียงลำดับ: กำลังทำมาก่อน -> ตามด้วยงานนัดหมายเรียงตามเวลา
             ->orderByRaw("FIELD(status, 'in_progress', 'scheduled')") 
             ->orderBy('scheduled_start', 'asc')
             ->limit(10)
@@ -196,23 +189,71 @@ class StaffJobController extends Controller
     }
 
     /**
-     * 🟢 เมนูอื่นๆ (Maintenance, Report)
+     * 🟢 6. แจ้งซ่อมทั่วไป (จากหน้าแรก Staff หรือปุ่มด่วน)
+     */
+    public function reportGeneral(Request $request)
+    {
+        $request->validate([
+            'equipment_id' => 'required|exists:equipment,id',
+            'description' => 'required|string',
+            'image' => 'nullable|image|max:10240'
+        ]);
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('maintenance_reports', 'public');
+        }
+
+        // 1. สร้าง Log แจ้งซ่อม
+        MaintenanceLog::create([
+            'equipment_id' => $request->equipment_id,
+            'reported_by' => Auth::id(),
+            'description' => $request->description,
+            'image_path' => $imagePath,
+            'maintenance_date' => now(),
+            'status' => 'pending', // รอแอดมินรับเรื่อง
+            'cost' => 0
+        ]);
+
+        // 2. อัปเดตสถานะรถเป็น 'maintenance' (ซ่อม) ทันที
+        Equipment::where('id', $request->equipment_id)->update([
+            'current_status' => 'maintenance'
+        ]);
+
+        return back()->with('success', 'แจ้งซ่อมเรียบร้อย! รถถูกเปลี่ยนสถานะเป็น "กำลังซ่อม"');
+    }
+
+    /**
+     * 🟢 7. หน้าประวัติการแจ้งซ่อมของฉัน
      */
     public function maintenanceIndex() {
-        return view('staff.maintenance.index', [
-            'myMaintenanceLogs' => MaintenanceLog::where('reported_by', Auth::id())->latest()->limit(20)->get()
-        ]);
+        $myMaintenanceLogs = MaintenanceLog::with('equipment')
+            ->where('reported_by', Auth::id())
+            ->latest()
+            ->limit(20)
+            ->get();
+            
+        return view('staff.maintenance.index', compact('myMaintenanceLogs'));
     }
 
+    /**
+     * 🟢 8. แสดงฟอร์มแจ้งซ่อม (ถ้ามีหน้าแยก)
+     */
     public function createReport() {
-        return view('staff.maintenance.create', ['equipments' => Equipment::where('deleted_at', null)->get()]);
+        $equipments = Equipment::all();
+        return view('staff.maintenance.create', compact('equipments'));
     }
 
+    /**
+     * 🟢 9. บันทึกจากหน้าฟอร์มแจ้งซ่อมแยก (ถ้ามี)
+     */
     public function storeReport(Request $request) { 
-        // Logic บันทึกแจ้งซ่อม (ถ้ามี)
-        return back()->with('success', 'บันทึกแจ้งซ่อมเรียบร้อย'); 
+        return $this->reportGeneral($request); // ใช้ Logic เดียวกับ reportGeneral
     }
     
-    public function reportIssue(Request $request, $jobId) { return back(); }
-    public function reportGeneral(Request $request) { return back(); }
+    // ไว้เผื่อแจ้งปัญหาเฉพาะงาน (ถ้ามีปุ่มแจ้งในหน้ารายละเอียดงาน)
+    public function reportIssue(Request $request, $jobId) { 
+        // Logic คล้าย reportGeneral แต่อาจจะผูกกับ Job ID ด้วย (ถ้า Table รองรับ)
+        return $this->reportGeneral($request);
+    }
 }

@@ -10,35 +10,31 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
-     *
-     * @var list<string>
      */
     protected $fillable = [
         'name',
         'email',
         'password',
         'username',
+        'role', // ✅ เพิ่ม: เพื่อให้กำหนดสิทธิ์ได้
+        'pin',  // ✅ เพิ่ม: เผื่อไว้ใช้ระบบ PIN ในอนาคต
     ];
 
     /**
      * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
      */
     protected $hidden = [
         'password',
         'remember_token',
+        'pin', // ซ่อน PIN ด้วยเพื่อความปลอดภัย
     ];
 
     /**
      * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
      */
     protected function casts(): array
     {

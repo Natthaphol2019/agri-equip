@@ -11,12 +11,18 @@ class IsAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // เช็คว่าเป็น Admin หรือไม่
-        if (Auth::check() && Auth::user()->role === 'admin') {
+        // 1. ถ้ายังไม่ล็อกอิน -> ไปหน้า Login
+        if (!Auth::check()) {
+            return redirect()->route('login');
+        }
+
+        // 2. ถ้าล็อกอินแล้ว และเป็น Admin -> อนุญาตให้ผ่าน
+        if (Auth::user()->role === 'admin') {
             return $next($request);
         }
 
-        // ถ้าไม่ใช่ ให้เด้งกลับไปหน้า Login
-        return redirect()->route('login')->with('error', 'ไม่มีสิทธิ์เข้าถึงส่วนนี้');
+        // 3. ⚠️ ถ้าล็อกอินแล้ว แต่ไม่ใช่ Admin (เช่น Staff พยายามเข้า)
+        // ให้ดีดไปหน้า Staff Dashboard แทนการ Error
+        return redirect()->route('staff.dashboard')->with('error', 'คุณไม่มีสิทธิ์เข้าถึงส่วนของผู้ดูแลระบบ');
     }
 }

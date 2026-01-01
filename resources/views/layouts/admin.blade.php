@@ -78,8 +78,7 @@
                 @if(Route::has($menu['route']))
                     @php 
                         $baseRoute = explode('.', $menu['route']); 
-                        // ✅ แก้ไข Logic: เช็คทั้งแบบ Exact Match และ Wildcard เพื่อครอบคลุม Dashboard และ Sub-menus
-                        // เช่น admin.dashboard (ตรงเป๊ะ) หรือ admin.jobs.* (ลูกๆ)
+                        // ✅ Logic: เช็คทั้งแบบ Exact Match และ Wildcard
                         $prefix = $baseRoute[0] . '.' . $baseRoute[1];
                         $isActive = request()->routeIs($menu['route']) || request()->routeIs($prefix . '*');
                     @endphp
@@ -119,8 +118,9 @@
             </h1>
             
             <div class="flex items-center gap-4">
+                {{-- 🔴 จุดที่ 1: แก้ไอคอน Header Mobile --}}
                 <a href="{{ route('admin.all-menus') }}" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 text-gray-600 hover:bg-agri-primary hover:text-white transition">
-                    <i class="fa-solid fa-grid-2"></i>
+                    <i class="fa-solid fa-table-cells-large"></i> {{-- เปลี่ยนจาก fa-grid-2 --}}
                 </a>
 
                 <a href="{{ route('admin.profile') }}" class="flex items-center gap-3 hover:bg-gray-50 py-1 px-2 rounded-lg transition group">
@@ -151,7 +151,8 @@
                     ['label' => 'หน้าแรก', 'route' => 'admin.dashboard', 'icon' => 'fa-house'],
                     ['label' => 'งาน', 'route' => 'admin.jobs.index', 'icon' => 'fa-clipboard-list'],
                     ['label' => 'รายงาน', 'route' => 'admin.reports.index', 'icon' => 'fa-chart-simple'],
-                    ['label' => 'เมนู', 'route' => 'admin.all-menus', 'icon' => 'fa-grid-2'],
+                    // 🔴 จุดที่ 2: แก้ไอคอน Bottom Bar
+                    ['label' => 'เมนู', 'route' => 'admin.all-menus', 'icon' => 'fa-table-cells-large'], 
                     ['label' => 'ฉัน', 'route' => 'admin.profile', 'icon' => 'fa-user'],
                 ];
             @endphp
@@ -161,7 +162,6 @@
                     @php
                         $baseRoute = explode('.', $item['route']);
                         $prefix = $baseRoute[0] . '.' . $baseRoute[1];
-                        // ✅ แก้ไข Logic เหมือน Desktop
                         $isActive = request()->routeIs($item['route']) || request()->routeIs($prefix . '*');
                     @endphp
                     <a href="{{ route($item['route']) }}" 
@@ -201,7 +201,6 @@
         }
     </script>
 
-    {{-- ✅ จุดสำคัญ: ต้องมีบรรทัดนี้ เพื่อให้ Chart.js ที่อยู่ใน Dashboard ทำงานได้ --}}
     @stack('scripts') 
 
 </body>
